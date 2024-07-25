@@ -9,15 +9,18 @@ import (
 	"os"
 )
 
-var maxPixels int = 64
+type ProcessConfig struct {
+	pixelSize int
+	scaling   int
+}
 
 func main() {
 	base_img, err := get_base_image()
 	if err != nil {
 		log.Fatalf("Failed to get base image: %v", err)
 	}
-
-	processed_img, err := process_png(base_img)
+	config := ProcessConfig{4, 2}
+	processed_img, err := process_png(base_img, config)
 	if err != nil {
 		log.Fatalf("Failed to process PNG: %v", err)
 	}
@@ -43,6 +46,7 @@ func get_base_image() (image.Image, error) {
 	var imageWidth = bounds.Dx()
 	var imageHeight = bounds.Dy()
 	fmt.Println("Width:", imageWidth, "Height:", imageHeight)
+	var maxPixels int = 64
 
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		if y >= maxPixels {
@@ -62,7 +66,33 @@ func get_base_image() (image.Image, error) {
 	return base_img, nil
 }
 
-func process_png(base_img image.Image) (image.Image, error) {
+func average_color(colors ...color.RGBA) color.RGBA {
+	total_r := 0
+	total_g := 0
+	total_b := 0
+	total_a := 0
+	num_colors := len(colors)
+	if num_colors == 0 {
+		return color.RGBA{0, 0, 0, 0}
+	}
+	for _, color := range colors {
+		total_r += int(color.R)
+		total_g += int(color.G)
+		total_b += int(color.B)
+		total_a += int(color.A)
+	}
+	average_r := total_r / num_colors
+	average_g := total_g / num_colors
+	average_b := total_b / num_colors
+	average_a := total_a / num_colors
+	var average_color = color.RGBA{uint8(average_r), uint8(average_g), uint8(average_b), uint8(average_a)}
+	return average_color
+}
+
+func process_png(base_img image.Image, config ProcessConfig) (image.Image, error) {
+	// using config.pixelSize == 4
+	// using config.scaling == 2 // this is 1/scaling essentially
+	fmt.Printf("%v", config)
 	var width = base_img.Bounds().Dx()
 	var height = base_img.Bounds().Dy()
 	img := image.NewRGBA(image.Rect(0, 0, width, height))

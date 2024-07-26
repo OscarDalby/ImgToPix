@@ -21,18 +21,19 @@ type PixelData struct {
 	c color.RGBA
 }
 
-var config = ProcessConfig{pixel_size: 128, scaling: 1, bg_color: color.RGBA{0, 0, 0, 0}}
+var config = ProcessConfig{pixel_size: 32, scaling: 1, bg_color: color.RGBA{0, 0, 0, 0}}
 
 func main() {
 	base_img, err := get_base_image("./input", "selfie", config)
 	if err != nil {
 		log.Fatalf("Failed to get base image: %v", err)
 	}
-	processed_img, err := process_png(base_img, config)
+	processed_img, scaled_img, err := process_png(base_img, config)
 	if err != nil {
 		log.Fatalf("Failed to process PNG: %v", err)
 	}
 	create_png(processed_img, "./output", "output_image")
+	create_png(scaled_img, "./output", "scaled_output_image")
 }
 
 func get_base_image(base_path string, file_name string, config ProcessConfig) (image.Image, error) {
@@ -79,10 +80,12 @@ func average_color(colors []color.RGBA) color.RGBA {
 	return color.RGBA{uint8(average_r), uint8(average_g), uint8(average_b), uint8(average_a)}
 }
 
-func process_png(base_img image.Image, config ProcessConfig) (image.Image, error) {
+func process_png(base_img image.Image, config ProcessConfig) (image.Image, image.Image, error) {
 	fmt.Printf("%v", config)
 	var width = base_img.Bounds().Dx()
 	var height = base_img.Bounds().Dy()
+	var scaled_width = width / config.pixel_size
+	var scaled_height = height / config.pixel_size
 
 	if width%config.pixel_size != 0 {
 		panic("pixel_size must divide width")
@@ -92,6 +95,7 @@ func process_png(base_img image.Image, config ProcessConfig) (image.Image, error
 	}
 
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	scaled_img := image.NewRGBA(image.Rect(0, 0, scaled_width, scaled_height))
 
 	fmt.Printf("new image instantiated\n")
 
@@ -104,8 +108,9 @@ func process_png(base_img image.Image, config ProcessConfig) (image.Image, error
 	}
 
 	fmt.Printf("background color set\n")
-	var totalPixelsToProcess = height * width
-	fmt.Printf("x * y %v\n", totalPixelsToProcess)
+	var total_pixels_to_process = height * width
+	total_count := 0
+	fmt.Printf("x * y %v\n", total_pixels_to_process)
 
 	for y := 0; y < height; y += config.pixel_size {
 		for x := 0; x < width; x += config.pixel_size {
@@ -124,26 +129,34 @@ func process_png(base_img image.Image, config ProcessConfig) (image.Image, error
 					pixel_list = append(pixel_list, PixelData{x: x, y: y, c: avg_color})
 					// fmt.Printf("avg_color: %v\n", avg_color)
 
-					// for j := 0; j < config.pixel_size; j++ {
-					// 	for i := 0; i < config.pixel_size; i++ {
-					// 		img.Set(x+i, y+j, avg_color)
-					// 	}
-					// }
-					if (totalPixelsToProcess-count)%1000 == 0 {
-						fmt.Printf("%v%% of pixels processed\n", count/totalPixelsToProcess)
+					for j := 0; j < config.pixel_size; j++ {
+						for i := 0; i < config.pixel_size; i++ {
+							img.Set(x+i, y+j, avg_color)
+						}
 					}
+
+					for j := 0; j < scaled_height/config.pixel_size; j++ {
+						for i := 0; i < scaled_width/config.pixel_size; i++ {
+							scaled_img.Set(x+i, y+j, avg_color)
+						}
+					}
+
 					count++
 				}
 			}
+			if (total_pixels_to_process-total_count)%1000 == 0 {
+				fmt.Printf("%v%% of pixels processed\n", total_count*100/total_pixels_to_process)
+			}
+			total_count++
 
 			fmt.Printf("pixel_list: %v\n", pixel_list)
 			fmt.Printf("number of pixels in pixel_list: %v\n", len(pixel_list))
 
 		}
 	}
-	fmt.Printf("returning proccessed img")
+	fmt.Printf("returning proccessed img\n")
 
-	return img, nil
+	return img, scaled_img, nil
 }
 
 func create_png(img image.Image, base_path string, file_name string) {

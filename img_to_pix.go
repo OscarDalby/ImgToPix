@@ -28,12 +28,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to get base image: %v", err)
 	}
-	processed_img, scaled_img, err := process_png(base_img, config)
+	processed_img, err := process_png(base_img, config)
 	if err != nil {
 		log.Fatalf("Failed to process PNG: %v", err)
 	}
 	create_png(processed_img, "./output", "output_image")
-	create_png(scaled_img, "./output", "scaled_output_image")
 }
 
 func get_base_image(base_path string, file_name string, config ProcessConfig) (image.Image, error) {
@@ -80,7 +79,7 @@ func average_color(colors []color.RGBA) color.RGBA {
 	return color.RGBA{uint8(average_r), uint8(average_g), uint8(average_b), uint8(average_a)}
 }
 
-func process_png(base_img image.Image, config ProcessConfig) (image.Image, image.Image, error) {
+func process_png(base_img image.Image, config ProcessConfig) (image.Image, error) {
 	var width = base_img.Bounds().Dx()
 	var height = base_img.Bounds().Dy()
 	var scaled_width = width / config.pixel_size
@@ -93,15 +92,15 @@ func process_png(base_img image.Image, config ProcessConfig) (image.Image, image
 		panic("pixel_size must divide height")
 	}
 
-	img := image.NewRGBA(image.Rect(0, 0, width, height))
 	scaled_img := image.NewRGBA(image.Rect(0, 0, scaled_width, scaled_height))
 
 	fmt.Printf("new image instantiated\n")
 
-	if config.bg_color.A != 0 { // if the bg_color is not completely transparent, then fill the background before the remaining processing
-		for y := 0; y < height; y++ {
-			for x := 0; x < width; x++ {
-				img.Set(x, y, config.bg_color)
+	// if the bg_color is not completely transparent, then fill the background before doing the remaining processing
+	if config.bg_color.A != 0 {
+		for y := 0; y < scaled_height; y++ {
+			for x := 0; x < scaled_width; x++ {
+				scaled_img.Set(x, y, config.bg_color)
 			}
 		}
 	}
@@ -115,7 +114,6 @@ func process_png(base_img image.Image, config ProcessConfig) (image.Image, image
 	for y := 0; y < height; y += config.pixel_size {
 		for x := 0; x < width; x += config.pixel_size {
 			var color_list []color.RGBA
-			var pixel_list []PixelData
 			var avg_color color.RGBA
 
 			count := 0
@@ -126,20 +124,12 @@ func process_png(base_img image.Image, config ProcessConfig) (image.Image, image
 					r, g, b, a := pixel.RGBA()
 					color_list = append(color_list, color.RGBA{uint8(r), uint8(g), uint8(b), uint8(a)})
 					avg_color = average_color(color_list)
-					pixel_list = append(pixel_list, PixelData{x: x, y: y, c: avg_color})
-
-					for j := 0; j < config.pixel_size; j++ {
-						for i := 0; i < config.pixel_size; i++ {
-							img.Set(x+i, y+j, avg_color)
-						}
-					}
-
 					count++
 				}
 			}
 			avg_colors_list = append(avg_colors_list, avg_color)
 			if len(avg_colors_list) == scaled_width*scaled_height {
-				for j := 0; j < scaled_height; j++ { // should go 1,2,3,4,... but currently goes
+				for j := 0; j < scaled_height; j++ {
 					for i := 0; i < scaled_width; i++ {
 						fmt.Printf("setting color for p%d%d to %v\n", i, j, avg_colors_list[i+j*scaled_width])
 						scaled_img.Set(i, j, avg_colors_list[i+j*scaled_width])
@@ -155,7 +145,7 @@ func process_png(base_img image.Image, config ProcessConfig) (image.Image, image
 	}
 	fmt.Printf("returning proccessed img\n")
 
-	return img, scaled_img, nil
+	return scaled_img, nil
 }
 
 func create_png(img image.Image, base_path string, file_name string) {

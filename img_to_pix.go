@@ -131,8 +131,8 @@ func process_png(base_img image.Image, config ProcessConfig) (image.Image, error
 			if len(avg_colors_list) == scaled_width*scaled_height {
 				for j := 0; j < scaled_height; j++ {
 					for i := 0; i < scaled_width; i++ {
-						fmt.Printf("setting color for p%d%d to %v\n", i, j, avg_colors_list[i+j*scaled_width])
 						scaled_img.Set(i, j, avg_colors_list[i+j*scaled_width])
+						fmt.Printf("%v%% processed\n", (100*(i+j*scaled_width)/(scaled_height*scaled_width))+1)
 					}
 				}
 			}
@@ -143,7 +143,7 @@ func process_png(base_img image.Image, config ProcessConfig) (image.Image, error
 
 		}
 	}
-	fmt.Printf("returning proccessed img\n")
+	fmt.Printf("returning processed img\n")
 
 	return scaled_img, nil
 }

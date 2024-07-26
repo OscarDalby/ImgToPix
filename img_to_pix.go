@@ -81,7 +81,6 @@ func average_color(colors []color.RGBA) color.RGBA {
 }
 
 func process_png(base_img image.Image, config ProcessConfig) (image.Image, image.Image, error) {
-	fmt.Printf("%v", config)
 	var width = base_img.Bounds().Dx()
 	var height = base_img.Bounds().Dy()
 	var scaled_width = width / config.pixel_size
@@ -110,7 +109,8 @@ func process_png(base_img image.Image, config ProcessConfig) (image.Image, image
 	fmt.Printf("background color set\n")
 	var total_pixels_to_process = height * width
 	total_count := 0
-	fmt.Printf("x * y %v\n", total_pixels_to_process)
+
+	var avg_colors_list []color.RGBA
 
 	for y := 0; y < height; y += config.pixel_size {
 		for x := 0; x < width; x += config.pixel_size {
@@ -127,7 +127,6 @@ func process_png(base_img image.Image, config ProcessConfig) (image.Image, image
 					color_list = append(color_list, color.RGBA{uint8(r), uint8(g), uint8(b), uint8(a)})
 					avg_color = average_color(color_list)
 					pixel_list = append(pixel_list, PixelData{x: x, y: y, c: avg_color})
-					// fmt.Printf("avg_color: %v\n", avg_color)
 
 					for j := 0; j < config.pixel_size; j++ {
 						for i := 0; i < config.pixel_size; i++ {
@@ -135,22 +134,22 @@ func process_png(base_img image.Image, config ProcessConfig) (image.Image, image
 						}
 					}
 
-					for j := 0; j < scaled_height/config.pixel_size; j++ {
-						for i := 0; i < scaled_width/config.pixel_size; i++ {
-							scaled_img.Set(x+i, y+j, avg_color)
-						}
-					}
-
 					count++
+				}
+			}
+			avg_colors_list = append(avg_colors_list, avg_color)
+			if len(avg_colors_list) == scaled_width*scaled_height {
+				for j := 0; j < scaled_height; j++ { // should go 1,2,3,4,... but currently goes
+					for i := 0; i < scaled_width; i++ {
+						fmt.Printf("setting color for p%d%d to %v\n", i, j, avg_colors_list[i+j*scaled_width])
+						scaled_img.Set(i, j, avg_colors_list[i+j*scaled_width])
+					}
 				}
 			}
 			if (total_pixels_to_process-total_count)%1000 == 0 {
 				fmt.Printf("%v%% of pixels processed\n", total_count*100/total_pixels_to_process)
 			}
 			total_count++
-
-			fmt.Printf("pixel_list: %v\n", pixel_list)
-			fmt.Printf("number of pixels in pixel_list: %v\n", len(pixel_list))
 
 		}
 	}
@@ -170,5 +169,5 @@ func create_png(img image.Image, base_path string, file_name string) {
 		panic(err)
 	}
 
-	fmt.Println("PNG image created successfully!")
+	fmt.Printf("PNG image created successfully!\n")
 }

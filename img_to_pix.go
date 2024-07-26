@@ -15,7 +15,13 @@ type ProcessConfig struct {
 	bg_color   color.RGBA
 }
 
-var config = ProcessConfig{pixel_size: 32, scaling: 1, bg_color: color.RGBA{0, 0, 0, 0}}
+type PixelData struct {
+	x int
+	y int
+	c color.RGBA
+}
+
+var config = ProcessConfig{pixel_size: 128, scaling: 1, bg_color: color.RGBA{0, 0, 0, 0}}
 
 func main() {
 	base_img, err := get_base_image("./input", "selfie", config)
@@ -87,6 +93,8 @@ func process_png(base_img image.Image, config ProcessConfig) (image.Image, error
 
 	img := image.NewRGBA(image.Rect(0, 0, width, height))
 
+	fmt.Printf("new image instantiated\n")
+
 	if config.bg_color.A != 0 { // if the bg_color is not completely transparent, then fill the background before the remaining processing
 		for y := 0; y < height; y++ {
 			for x := 0; x < width; x++ {
@@ -95,28 +103,45 @@ func process_png(base_img image.Image, config ProcessConfig) (image.Image, error
 		}
 	}
 
+	fmt.Printf("background color set\n")
+	var totalPixelsToProcess = height * width
+	fmt.Printf("x * y %v\n", totalPixelsToProcess)
+
 	for y := 0; y < height; y += config.pixel_size {
 		for x := 0; x < width; x += config.pixel_size {
 			var color_list []color.RGBA
+			var pixel_list []PixelData
 			var avg_color color.RGBA
+
 			count := 0
+
 			for dy := 0; dy < config.pixel_size; dy++ {
 				for dx := 0; dx < config.pixel_size; dx++ {
 					pixel := base_img.At(x+dx, y+dy)
 					r, g, b, a := pixel.RGBA()
 					color_list = append(color_list, color.RGBA{uint8(r), uint8(g), uint8(b), uint8(a)})
 					avg_color = average_color(color_list)
-					for j := 0; j < config.pixel_size; j++ {
-						for i := 0; i < config.pixel_size; i++ {
-							img.Set(x+i, y+j, avg_color)
-						}
+					pixel_list = append(pixel_list, PixelData{x: x, y: y, c: avg_color})
+					// fmt.Printf("avg_color: %v\n", avg_color)
+
+					// for j := 0; j < config.pixel_size; j++ {
+					// 	for i := 0; i < config.pixel_size; i++ {
+					// 		img.Set(x+i, y+j, avg_color)
+					// 	}
+					// }
+					if (totalPixelsToProcess-count)%1000 == 0 {
+						fmt.Printf("%v%% of pixels processed\n", count/totalPixelsToProcess)
 					}
 					count++
 				}
 			}
 
+			fmt.Printf("pixel_list: %v\n", pixel_list)
+			fmt.Printf("number of pixels in pixel_list: %v\n", len(pixel_list))
+
 		}
 	}
+	fmt.Printf("returning proccessed img")
 
 	return img, nil
 }

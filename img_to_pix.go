@@ -20,13 +20,6 @@ type ProcessConfig struct {
 	palette      []color.RGBA
 }
 
-var input_path = "./input"
-var input_filename = "input"
-var tmp_path = "./tmp"
-var tmp_filename = "working"
-var output_path = "./output"
-var output_filename = "output"
-
 var config = ProcessConfig{
 	pixel_size:   16,
 	pixel_width:  16,
@@ -48,13 +41,23 @@ var config = ProcessConfig{
 }
 
 func main() {
+	var input_path = "./input"
+	var input_filename = "input"
+	var tmp_path = "./tmp"
+	var tmp_filename = "working"
+	var output_path = "./output"
+	var output_filename = "output"
+
+	flag_input_file := flag.String("input", "raw_input", "name of the input file excluding file type extension")
+	flag_output_file := flag.String("output", "output", "name of the output file excluding file type extension")
+
 	flag_pixelise := flag.Bool("pixelise", true, "pixelise the input image")
 	flag_apply_palette := flag.Bool("apply-palette", false, "apply a palette to the input image")
 	flag_invert_colors := flag.Bool("invert", false, "invert the colors in the input image")
 
 	flag_pixel_size := flag.Int("pixel-size", 16, "the size of the resulting pixels as a portion of the input")
-	flag_pixel_width := flag.Int("pixel-size", 16, "the width of the resulting pixels as a portion of the input")
-	flag_pixel_height := flag.Int("pixel-size", 16, "the height of the resulting pixels as a portion of the input")
+	flag_pixel_width := flag.Int("pixel-width", 16, "the width of the resulting pixels as a portion of the input")
+	flag_pixel_height := flag.Int("pixel-height", 16, "the height of the resulting pixels as a portion of the input")
 	flag_scaling := flag.Int("scale", 1, "invert the colors in the input image")
 
 	config.pixel_size = *flag_pixel_size
@@ -62,16 +65,28 @@ func main() {
 	config.pixel_height = *flag_pixel_height
 	config.scaling = *flag_scaling
 
+	input_filename = *flag_input_file
+	output_filename = *flag_output_file
+
 	flag.Parse()
 	fmt.Printf("image processing started, working image stored in %s/%s\n", tmp_path, tmp_filename)
 	var working_image image.Image
 	var err error
-	base_img, err := get_base_image(input_path, input_filename, config)
+	working_image, err = get_base_image(input_path, input_filename, config)
 	if err != nil {
 		log.Fatalf("Failed to get base image: %v", err)
 	}
+
+	crop_required, crop_width, crop_height := get_required_crop_lengths(working_image, config)
+	if crop_required {
+		working_image, err = crop_image(working_image, crop_width, crop_height)
+		if err != nil {
+			log.Fatalf("Failed to crop input PNG: %v", err)
+		}
+	}
+
 	if *flag_pixelise {
-		working_image, err = process_png_pixelise(base_img, config)
+		working_image, err = process_png_pixelise(working_image, config)
 		if err != nil {
 			log.Fatalf("Failed to process PNG: %v", err)
 		}
@@ -106,12 +121,6 @@ func get_base_image(base_path string, file_name string, config ProcessConfig) (i
 	}
 	defer file.Close()
 	base_img, err := png.Decode(file)
-	if base_img.Bounds().Dx()%config.pixel_size != 0 {
-		panic("pixel_size must divide width")
-	}
-	if base_img.Bounds().Dy()%config.pixel_size != 0 {
-		panic("pixel_size must divide height")
-	}
 	if err != nil {
 		fmt.Println("Error decoding file:", err)
 		return nil, err
@@ -292,7 +301,6 @@ func get_inverted_pixel(pixel color.Color) color.Color {
 }
 
 func process_png_invert_colors(base_img image.Image, config ProcessConfig) (image.Image, error) {
-	// Color newPixelColor = Color.FromArgb(255 - oldPixelColor.R, 255 - oldPixelColor.G, 255 - oldPixelColor.B);
 	var width = base_img.Bounds().Dx()
 	var height = base_img.Bounds().Dy()
 	fmt.Printf("%v", config)

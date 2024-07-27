@@ -12,10 +12,12 @@ import (
 )
 
 type ProcessConfig struct {
-	pixel_size int
-	scaling    int
-	bg_color   color.RGBA
-	palette    []color.RGBA
+	pixel_size   int
+	pixel_width  int
+	pixel_height int
+	scaling      int
+	bg_color     color.RGBA
+	palette      []color.RGBA
 }
 
 var input_path = "./input"
@@ -26,9 +28,11 @@ var output_path = "./output"
 var output_filename = "output"
 
 var config = ProcessConfig{
-	pixel_size: 16,
-	scaling:    1,
-	bg_color:   color.RGBA{0, 0, 0, 0},
+	pixel_size:   16,
+	pixel_width:  16,
+	pixel_height: 16,
+	scaling:      1,
+	bg_color:     color.RGBA{0, 0, 0, 0},
 	palette: []color.RGBA{
 		{255, 0, 0, 255},     // red
 		{255, 255, 0, 255},   // yellow
@@ -49,9 +53,13 @@ func main() {
 	flag_invert_colors := flag.Bool("invert", false, "invert the colors in the input image")
 
 	flag_pixel_size := flag.Int("pixel-size", 16, "the size of the resulting pixels as a portion of the input")
+	flag_pixel_width := flag.Int("pixel-size", 16, "the width of the resulting pixels as a portion of the input")
+	flag_pixel_height := flag.Int("pixel-size", 16, "the height of the resulting pixels as a portion of the input")
 	flag_scaling := flag.Int("scale", 1, "invert the colors in the input image")
 
 	config.pixel_size = *flag_pixel_size
+	config.pixel_width = *flag_pixel_width
+	config.pixel_height = *flag_pixel_height
 	config.scaling = *flag_scaling
 
 	flag.Parse()
@@ -222,6 +230,57 @@ func process_png_apply_palette(base_img image.Image, config ProcessConfig) (imag
 		}
 	}
 	return colored_img, nil
+}
+
+func get_required_crop_lengths(base_img image.Image, config ProcessConfig) (bool, int, int) {
+	var crop_required bool
+	var required_crop_width, required_crop_height int
+	var width = base_img.Bounds().Dx()
+	var height = base_img.Bounds().Dy()
+
+	var width_remainder int = width % config.pixel_width
+	var height_remainder int = height % config.pixel_height
+
+	if width_remainder == 0 {
+		required_crop_width = width
+	} else {
+		required_crop_width = width - width_remainder
+		crop_required = true
+	}
+	if height_remainder == 0 {
+		required_crop_height = height
+	} else {
+		required_crop_height = height - height_remainder
+		crop_required = true
+	}
+	return crop_required, required_crop_width, required_crop_height
+}
+
+func crop_image(base_img image.Image, cropped_width int, cropped_height int) (image.Image, error) {
+	var width = base_img.Bounds().Dx()
+	var height = base_img.Bounds().Dy()
+	cropped_image := image.NewRGBA(image.Rect(0, 0, width, height))
+	if cropped_width >= width && cropped_height >= height {
+		fmt.Printf("image is smaller than crop size, returning early with base image")
+		return base_img, nil
+	}
+	if cropped_width > width {
+		fmt.Printf("cropped_width is greater than input width, not cropping width")
+		cropped_width = width
+	}
+	if cropped_height > height {
+		fmt.Printf("cropped_height is greater than input height, not cropping height")
+		cropped_height = height
+	}
+
+	for y := 0; y < cropped_height; y++ {
+		for x := 0; x < cropped_width; x++ {
+			pixel := base_img.At(x, y)
+			cropped_image.Set(x, y, pixel)
+		}
+	}
+
+	return cropped_image, nil
 }
 
 func get_inverted_pixel(pixel color.Color) color.Color {

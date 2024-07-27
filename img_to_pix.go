@@ -28,11 +28,11 @@ var config = ProcessConfig{
 	scaling:    3,
 	bg_color:   color.RGBA{0, 0, 0, 0},
 	palette: []color.RGBA{
-		{255, 0, 0, 255},     // red
-		{0, 255, 0, 255},     // green
-		{0, 0, 255, 255},     // blue
-		{0, 0, 0, 255},       // black
-		{255, 255, 255, 255}, // white
+		{255, 0, 0, 255}, // red
+		{0, 255, 0, 255}, // green
+		{0, 0, 255, 255}, // blue
+		{0, 0, 0, 255},   // black
+		// {255, 255, 255, 255}, // white
 	},
 }
 
@@ -142,13 +142,13 @@ func process_png_pixelise(base_img image.Image, config ProcessConfig) (image.Ima
 }
 
 func calculate_color_diff(color1 color.Color, color2 color.Color) int {
-	r1, g1, b1, a1 := color1.RGBA()
-	r2, g2, b2, a2 := color2.RGBA()
+	r1, g1, b1, _ := color1.RGBA()
+	r2, g2, b2, _ := color2.RGBA()
 	var r_diff = (r1 - r2) >> 8
 	var g_diff = (g1 - g2) >> 8
 	var b_diff = (b1 - b2) >> 8
-	var a_diff = (a1 - a2) >> 8
-	var color_diff = int(r_diff + g_diff + b_diff + a_diff)
+	// var a_diff = (a1 - a2) >> 8
+	var color_diff = int(r_diff + g_diff + b_diff)
 	fmt.Printf("color_diff: %d\n", color_diff)
 	return color_diff
 }

@@ -68,7 +68,7 @@ func get_base_image(base_path string, file_name string, config ProcessConfig) (i
 	return base_img, nil
 }
 
-func average_color(colors []color.RGBA) color.RGBA {
+func get_average_color(colors []color.RGBA) color.RGBA {
 	total_r := 0
 	total_g := 0
 	total_b := 0
@@ -113,7 +113,7 @@ func process_png_pixelise(base_img image.Image, config ProcessConfig) (image.Ima
 					count++
 				}
 			}
-			avg_color := average_color(colors_in_block)
+			avg_color := get_average_color(colors_in_block)
 
 			for sy := 0; sy < config.scaling; sy++ {
 				for sx := 0; sx < config.scaling; sx++ {
@@ -127,39 +127,25 @@ func process_png_pixelise(base_img image.Image, config ProcessConfig) (image.Ima
 	return scaled_img, nil
 }
 
+func get_closest_palette_color(pixel color.Color) color.RGBA {
+	r, g, b, a := pixel.RGBA()
+
+	return color.RGBA{uint8(r), uint8(g), uint8(b), uint8(a)}
+}
+
 func process_png_apply_palette(base_img image.Image, config ProcessConfig) (image.Image, error) {
 	var width = base_img.Bounds().Dx()
 	var height = base_img.Bounds().Dy()
 	fmt.Printf("%v", config)
 	colored_img := image.NewRGBA(image.Rect(0, 0, width, height))
 
-	// for y := 0; y < height; y += config.pixel_size {
-	// 	for x := 0; x < width; x += config.pixel_size {
-	// 		var totalR, totalG, totalB, totalA, count uint32
-	// 		var colors_in_block []color.RGBA
-	// 		for dy := 0; dy < config.pixel_size; dy++ {
-	// 			for dx := 0; dx < config.pixel_size; dx++ {
-	// 				pixel := base_img.At(x+dx, y+dy)
-	// 				r, g, b, a := pixel.RGBA()
-	// 				colors_in_block = append(colors_in_block, color.RGBA{uint8(r), uint8(g), uint8(b), uint8(a)})
-	// 				totalR += r
-	// 				totalG += g
-	// 				totalB += b
-	// 				totalA += a
-	// 				count++
-	// 			}
-	// 		}
-	// 		avg_color := average_color(colors_in_block)
-
-	// 		for sy := 0; sy < config.scaling; sy++ {
-	// 			for sx := 0; sx < config.scaling; sx++ {
-	// 				scaled_x := (x/config.pixel_size)*config.scaling + sx
-	// 				scaled_y := (y/config.pixel_size)*config.scaling + sy
-	// 				scaled_img.Set(scaled_x, scaled_y, avg_color)
-	// 			}
-	// 		}
-	// 	}
-	// }
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			pixel := base_img.At(x, y)
+			closest_palette_color := get_closest_palette_color(pixel)
+			colored_img.Set(x, y, closest_palette_color)
+		}
+	}
 	return colored_img, nil
 }
 

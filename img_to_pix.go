@@ -13,6 +13,7 @@ type ProcessConfig struct {
 	pixel_size int
 	scaling    int
 	bg_color   color.RGBA
+	palette    []color.RGBA
 }
 
 var input_path = "./input"
@@ -22,7 +23,18 @@ var tmp_filename = "working"
 var output_path = "./output"
 var output_filename = "output"
 
-var config = ProcessConfig{pixel_size: 32, scaling: 3, bg_color: color.RGBA{0, 0, 0, 0}}
+var config = ProcessConfig{
+	pixel_size: 32,
+	scaling:    3,
+	bg_color:   color.RGBA{0, 0, 0, 0},
+	palette: []color.RGBA{
+		{255, 0, 0, 255},     // red
+		{0, 255, 0, 255},     // green
+		{0, 0, 255, 255},     // blue
+		{0, 0, 0, 255},       // black
+		{255, 255, 255, 255}, // white
+	},
+}
 
 func main() {
 	fmt.Printf("image processing started, working image stored in %s/%s\n", tmp_path, tmp_filename)
@@ -43,6 +55,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to process PNG: %v", err)
 	}
+	create_png(working_image, output_path, "palette_applied")
+
 	create_png(working_image, output_path, output_filename)
 }
 
@@ -127,10 +141,29 @@ func process_png_pixelise(base_img image.Image, config ProcessConfig) (image.Ima
 	return scaled_img, nil
 }
 
-func get_closest_palette_color(pixel color.Color) color.RGBA {
-	r, g, b, a := pixel.RGBA()
+func calculate_color_diff(color1 color.Color, color2 color.Color) int {
+	r1, g1, b1, a1 := color1.RGBA()
+	r2, g2, b2, a2 := color2.RGBA()
+	var r_diff = (r1 - r2) >> 8
+	var g_diff = (g1 - g2) >> 8
+	var b_diff = (b1 - b2) >> 8
+	var a_diff = (a1 - a2) >> 8
+	var color_diff = int(r_diff + g_diff + b_diff + a_diff)
+	fmt.Printf("color_diff: %d\n", color_diff)
+	return color_diff
+}
 
-	return color.RGBA{uint8(r), uint8(g), uint8(b), uint8(a)}
+func get_closest_color_in_palette(pixel color.Color, palette []color.RGBA) color.RGBA {
+	var closest_palette_color = color.RGBA{0, 0, 0, 0}
+	var smallest_color_diff int = 99999999999999
+	for _, color := range palette {
+		color_diff := calculate_color_diff(color, pixel)
+		if color_diff < smallest_color_diff {
+			smallest_color_diff = color_diff
+			closest_palette_color = color
+		}
+	}
+	return closest_palette_color
 }
 
 func process_png_apply_palette(base_img image.Image, config ProcessConfig) (image.Image, error) {
@@ -142,8 +175,9 @@ func process_png_apply_palette(base_img image.Image, config ProcessConfig) (imag
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			pixel := base_img.At(x, y)
-			closest_palette_color := get_closest_palette_color(pixel)
-			colored_img.Set(x, y, closest_palette_color)
+			closest_color_in_palette := get_closest_color_in_palette(pixel, config.palette)
+			fmt.Printf("closest color:%v\n", closest_color_in_palette)
+			colored_img.Set(x, y, closest_color_in_palette)
 		}
 	}
 	return colored_img, nil

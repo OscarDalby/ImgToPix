@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
@@ -26,7 +27,7 @@ var output_filename = "output"
 
 var config = ProcessConfig{
 	pixel_size: 16,
-	scaling:    3,
+	scaling:    1,
 	bg_color:   color.RGBA{0, 0, 0, 0},
 	palette: []color.RGBA{
 		{255, 0, 0, 255},     // red
@@ -43,6 +44,17 @@ var config = ProcessConfig{
 }
 
 func main() {
+	flag_pixelise := flag.Bool("pixelise", true, "pixelise the input image")
+	flag_apply_palette := flag.Bool("apply-palette", false, "apply a palette to the input image")
+	flag_invert_colors := flag.Bool("invert", false, "invert the colors in the input image")
+
+	flag_pixel_size := flag.Int("pixel-size", 16, "the size of the resulting pixels as a portion of the input")
+	flag_scaling := flag.Int("scale", 1, "invert the colors in the input image")
+
+	config.pixel_size = *flag_pixel_size
+	config.scaling = *flag_scaling
+
+	flag.Parse()
 	fmt.Printf("image processing started, working image stored in %s/%s\n", tmp_path, tmp_filename)
 	var working_image image.Image
 	var err error
@@ -50,18 +62,29 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to get base image: %v", err)
 	}
-	working_image, err = process_png_pixelise(base_img, config)
-	if err != nil {
-		log.Fatalf("Failed to process PNG: %v", err)
+	if *flag_pixelise {
+		working_image, err = process_png_pixelise(base_img, config)
+		if err != nil {
+			log.Fatalf("Failed to process PNG: %v", err)
+		}
+		create_png(working_image, output_path, "pixelated")
 	}
 
-	create_png(working_image, output_path, "pixelated")
-
-	working_image, err = process_png_apply_palette(working_image, config)
-	if err != nil {
-		log.Fatalf("Failed to process PNG: %v", err)
+	if *flag_apply_palette {
+		working_image, err = process_png_apply_palette(working_image, config)
+		if err != nil {
+			log.Fatalf("Failed to process PNG: %v", err)
+		}
+		create_png(working_image, output_path, "palette_applied")
 	}
-	create_png(working_image, output_path, "palette_applied")
+
+	if *flag_invert_colors {
+		working_image, err = process_png_invert_colors(working_image, config)
+		if err != nil {
+			log.Fatalf("Failed to process PNG: %v", err)
+		}
+		create_png(working_image, output_path, "inversion_applied")
+	}
 
 	create_png(working_image, output_path, output_filename)
 }
@@ -180,6 +203,10 @@ func get_closest_color_in_palette(pixel color.Color, palette []color.RGBA) color
 	return closest_palette_color
 }
 
+// func set_image_block(img image.Image, x1 int, y1 int, x2 int, y2 int) image.Image {
+// helper function to set all pixels a single color from topleft x1,y1 to bottom right x2,y2
+// }
+
 func process_png_apply_palette(base_img image.Image, config ProcessConfig) (image.Image, error) {
 	var width = base_img.Bounds().Dx()
 	var height = base_img.Bounds().Dy()
@@ -192,6 +219,31 @@ func process_png_apply_palette(base_img image.Image, config ProcessConfig) (imag
 			closest_color_in_palette := get_closest_color_in_palette(pixel, config.palette)
 			fmt.Printf("closest color:%v\n", closest_color_in_palette)
 			colored_img.Set(x, y, closest_color_in_palette)
+		}
+	}
+	return colored_img, nil
+}
+
+func get_inverted_pixel(pixel color.Color) color.Color {
+	r, g, b, a := pixel.RGBA()
+	rs, gs, bs, as := r>>8, g>>8, b>>8, a>>8
+	fmt.Printf("rs:%v,gs:%v,bs:%v,as:%v\n", rs, gs, bs, as)
+	var inverted_pixel = color.RGBA{uint8(255 - rs), uint8(255 - gs), uint8(255 - bs), uint8(as)}
+	return inverted_pixel
+}
+
+func process_png_invert_colors(base_img image.Image, config ProcessConfig) (image.Image, error) {
+	// Color newPixelColor = Color.FromArgb(255 - oldPixelColor.R, 255 - oldPixelColor.G, 255 - oldPixelColor.B);
+	var width = base_img.Bounds().Dx()
+	var height = base_img.Bounds().Dy()
+	fmt.Printf("%v", config)
+	colored_img := image.NewRGBA(image.Rect(0, 0, width, height))
+
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			pixel := base_img.At(x, y)
+			var inverted_pixel = get_inverted_pixel(pixel)
+			colored_img.Set(x, y, inverted_pixel)
 		}
 	}
 	return colored_img, nil

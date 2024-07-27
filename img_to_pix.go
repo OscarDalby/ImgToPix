@@ -15,13 +15,7 @@ type ProcessConfig struct {
 	bg_color   color.RGBA
 }
 
-type PixelData struct {
-	x int
-	y int
-	c color.RGBA
-}
-
-var config = ProcessConfig{pixel_size: 32, scaling: 1, bg_color: color.RGBA{0, 0, 0, 0}}
+var config = ProcessConfig{pixel_size: 32, scaling: 3, bg_color: color.RGBA{0, 0, 0, 0}}
 
 func main() {
 	base_img, err := get_base_image("./input", "selfie", config)
@@ -82,69 +76,42 @@ func average_color(colors []color.RGBA) color.RGBA {
 func process_png(base_img image.Image, config ProcessConfig) (image.Image, error) {
 	var width = base_img.Bounds().Dx()
 	var height = base_img.Bounds().Dy()
-	var scaled_width = width / config.pixel_size
-	var scaled_height = height / config.pixel_size
+	var scaled_width = width * config.scaling / config.pixel_size
+	var scaled_height = height * config.scaling / config.pixel_size
 
-	if width%config.pixel_size != 0 {
-		panic("pixel_size must divide width")
-	}
-	if height%config.pixel_size != 0 {
-		panic("pixel_size must divide height")
+	if width%config.pixel_size != 0 || height%config.pixel_size != 0 {
+		panic("pixel_size must evenly divide both width and height")
 	}
 
 	scaled_img := image.NewRGBA(image.Rect(0, 0, scaled_width, scaled_height))
 
-	fmt.Printf("new image instantiated\n")
-
-	// if the bg_color is not completely transparent, then fill the background before doing the remaining processing
-	if config.bg_color.A != 0 {
-		for y := 0; y < scaled_height; y++ {
-			for x := 0; x < scaled_width; x++ {
-				scaled_img.Set(x, y, config.bg_color)
-			}
-		}
-	}
-
-	fmt.Printf("background color set\n")
-	var total_pixels_to_process = height * width
-	total_count := 0
-
-	var avg_colors_list []color.RGBA
-
 	for y := 0; y < height; y += config.pixel_size {
 		for x := 0; x < width; x += config.pixel_size {
-			var color_list []color.RGBA
-			var avg_color color.RGBA
-
-			count := 0
-
+			var totalR, totalG, totalB, totalA, count uint32
+			var colors_in_block []color.RGBA
 			for dy := 0; dy < config.pixel_size; dy++ {
 				for dx := 0; dx < config.pixel_size; dx++ {
 					pixel := base_img.At(x+dx, y+dy)
 					r, g, b, a := pixel.RGBA()
-					color_list = append(color_list, color.RGBA{uint8(r), uint8(g), uint8(b), uint8(a)})
-					avg_color = average_color(color_list)
+					colors_in_block = append(colors_in_block, color.RGBA{uint8(r), uint8(g), uint8(b), uint8(a)})
+					totalR += r
+					totalG += g
+					totalB += b
+					totalA += a
 					count++
 				}
 			}
-			avg_colors_list = append(avg_colors_list, avg_color)
-			if len(avg_colors_list) == scaled_width*scaled_height {
-				for j := 0; j < scaled_height; j++ {
-					for i := 0; i < scaled_width; i++ {
-						scaled_img.Set(i, j, avg_colors_list[i+j*scaled_width])
-						fmt.Printf("%v%% processed\n", (100*(i+j*scaled_width)/(scaled_height*scaled_width))+1)
-					}
+			avg_color := average_color(colors_in_block)
+
+			for sy := 0; sy < config.scaling; sy++ {
+				for sx := 0; sx < config.scaling; sx++ {
+					scaled_x := (x/config.pixel_size)*config.scaling + sx
+					scaled_y := (y/config.pixel_size)*config.scaling + sy
+					scaled_img.Set(scaled_x, scaled_y, avg_color)
 				}
 			}
-			if (total_pixels_to_process-total_count)%1000 == 0 {
-				fmt.Printf("%v%% of pixels processed\n", total_count*100/total_pixels_to_process)
-			}
-			total_count++
-
 		}
 	}
-	fmt.Printf("returning processed img\n")
-
 	return scaled_img, nil
 }
 

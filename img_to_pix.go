@@ -72,7 +72,7 @@ func main() {
 	fmt.Printf("image processing started, working image stored in %s/%s\n", tmp_path, tmp_filename)
 	var working_image image.Image
 	var err error
-	working_image, err = get_base_image(input_path, input_filename, config)
+	working_image, err = get_base_image(input_path, input_filename)
 	if err != nil {
 		log.Fatalf("Failed to get base image: %v", err)
 	}
@@ -112,7 +112,7 @@ func main() {
 	create_png(working_image, output_path, output_filename)
 }
 
-func get_base_image(base_path string, file_name string, config ProcessConfig) (image.Image, error) {
+func get_base_image(base_path string, file_name string) (image.Image, error) {
 	var path = fmt.Sprintf("%s/%s.png", base_path, file_name)
 	file, err := os.Open(path)
 	if err != nil {

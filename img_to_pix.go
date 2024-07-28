@@ -228,7 +228,7 @@ func process_png_apply_palette(base_img image.Image, config ProcessConfig) (imag
 	fmt.Printf("%v", config)
 	colored_img := image.NewRGBA(image.Rect(0, 0, width, height))
 
-	totalPixels := height * width
+	total_pixels_to_process := height * width
 	count := 0
 
 	for y := 0; y < height; y++ {
@@ -238,7 +238,7 @@ func process_png_apply_palette(base_img image.Image, config ProcessConfig) (imag
 			colored_img.Set(x, y, closest_color_in_palette)
 
 			count++
-			percentComplete := (float64(count) / float64(totalPixels)) * 100
+			percentComplete := (float64(count) / float64(total_pixels_to_process)) * 100
 			fmt.Printf("Progress: %.2f%%\n", percentComplete)
 		}
 	}

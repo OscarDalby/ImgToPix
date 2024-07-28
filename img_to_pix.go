@@ -15,7 +15,7 @@ type ProcessConfig struct {
 	pixel_size   int
 	pixel_width  int
 	pixel_height int
-	scaling      int
+	scale        int
 	bg_color     color.RGBA
 	palette      []color.RGBA
 }
@@ -24,7 +24,7 @@ var config = ProcessConfig{
 	pixel_size:   16,
 	pixel_width:  16,
 	pixel_height: 16,
-	scaling:      1,
+	scale:        1,
 	bg_color:     color.RGBA{0, 0, 0, 0},
 	palette: []color.RGBA{
 		{255, 0, 0, 255},     // red
@@ -48,27 +48,28 @@ func main() {
 	var output_path = "./output"
 	var output_filename = "output"
 
-	flag_input_file := flag.String("input", "raw_input", "name of the input file excluding file type extension")
+	flag_input_file := flag.String("input", "input", "name of the input file excluding file type extension")
 	flag_output_file := flag.String("output", "output", "name of the output file excluding file type extension")
 
 	flag_pixelise := flag.Bool("pixelise", true, "pixelise the input image")
-	flag_apply_palette := flag.Bool("apply-palette", false, "apply a palette to the input image")
+	flag_apply_palette := flag.Bool("apply-palette", true, "apply a palette to the input image")
 	flag_invert_colors := flag.Bool("invert", false, "invert the colors in the input image")
 
 	flag_pixel_size := flag.Int("pixel-size", 16, "the size of the resulting pixels as a portion of the input")
 	flag_pixel_width := flag.Int("pixel-width", 16, "the width of the resulting pixels as a portion of the input")
 	flag_pixel_height := flag.Int("pixel-height", 16, "the height of the resulting pixels as a portion of the input")
-	flag_scaling := flag.Int("scale", 1, "invert the colors in the input image")
+	flag_scale := flag.Int("scale", 3, "invert the colors in the input image")
+
+	flag.Parse()
 
 	config.pixel_size = *flag_pixel_size
 	config.pixel_width = *flag_pixel_width
 	config.pixel_height = *flag_pixel_height
-	config.scaling = *flag_scaling
+	config.scale = *flag_scale
 
 	input_filename = *flag_input_file
 	output_filename = *flag_output_file
 
-	flag.Parse()
 	fmt.Printf("image processing started, working image stored in %s/%s\n", tmp_path, tmp_filename)
 	var working_image image.Image
 	var err error
@@ -153,8 +154,8 @@ func get_average_color(colors []color.RGBA) color.RGBA {
 func process_png_pixelise(base_img image.Image, config ProcessConfig) (image.Image, error) {
 	var width = base_img.Bounds().Dx()
 	var height = base_img.Bounds().Dy()
-	var scaled_width = width * config.scaling / config.pixel_size
-	var scaled_height = height * config.scaling / config.pixel_size
+	var scaled_width = width * config.scale / config.pixel_size
+	var scaled_height = height * config.scale / config.pixel_size
 	scaled_img := image.NewRGBA(image.Rect(0, 0, scaled_width, scaled_height))
 
 	for y := 0; y < height; y += config.pixel_size {
@@ -175,10 +176,10 @@ func process_png_pixelise(base_img image.Image, config ProcessConfig) (image.Ima
 			}
 			avg_color := get_average_color(colors_in_block)
 
-			for sy := 0; sy < config.scaling; sy++ {
-				for sx := 0; sx < config.scaling; sx++ {
-					scaled_x := (x/config.pixel_size)*config.scaling + sx
-					scaled_y := (y/config.pixel_size)*config.scaling + sy
+			for sy := 0; sy < config.scale; sy++ {
+				for sx := 0; sx < config.scale; sx++ {
+					scaled_x := (x/config.pixel_size)*config.scale + sx
+					scaled_y := (y/config.pixel_size)*config.scale + sy
 					scaled_img.Set(scaled_x, scaled_y, avg_color)
 				}
 			}
@@ -189,9 +190,7 @@ func process_png_pixelise(base_img image.Image, config ProcessConfig) (image.Ima
 
 func calculate_color_diff(color1, color2 color.Color) int {
 	r1, g1, b1, _ := color1.RGBA()
-	fmt.Printf("r1:%v, g1:%v, b1:%v\n", r1, g1, b1)
 	r2, g2, b2, _ := color2.RGBA()
-	fmt.Printf("r2:%v, g2:%v, b2:%v\n", r2, g2, b2)
 
 	r1s, r2s := int(r1>>8), int(r2>>8)
 	g1s, g2s := int(g1>>8), int(g2>>8)
@@ -202,7 +201,6 @@ func calculate_color_diff(color1, color2 color.Color) int {
 	b_diff := b1s - b2s
 
 	euclid_dist := math.Sqrt(float64(r_diff*r_diff + g_diff*g_diff + b_diff*b_diff))
-	fmt.Printf("euclid_dist: %v\n", euclid_dist)
 
 	return int(euclid_dist)
 }
@@ -230,14 +228,21 @@ func process_png_apply_palette(base_img image.Image, config ProcessConfig) (imag
 	fmt.Printf("%v", config)
 	colored_img := image.NewRGBA(image.Rect(0, 0, width, height))
 
+	totalPixels := height * width
+	count := 0
+
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			pixel := base_img.At(x, y)
 			closest_color_in_palette := get_closest_color_in_palette(pixel, config.palette)
-			fmt.Printf("closest color:%v\n", closest_color_in_palette)
 			colored_img.Set(x, y, closest_color_in_palette)
+
+			count++
+			percentComplete := (float64(count) / float64(totalPixels)) * 100
+			fmt.Printf("Progress: %.2f%%\n", percentComplete)
 		}
 	}
+
 	return colored_img, nil
 }
 
@@ -295,7 +300,7 @@ func crop_image(base_img image.Image, cropped_width int, cropped_height int) (im
 func get_inverted_pixel(pixel color.Color) color.Color {
 	r, g, b, a := pixel.RGBA()
 	rs, gs, bs, as := r>>8, g>>8, b>>8, a>>8
-	fmt.Printf("rs:%v,gs:%v,bs:%v,as:%v\n", rs, gs, bs, as)
+	// fmt.Printf("rs:%v,gs:%v,bs:%v,as:%v\n", rs, gs, bs, as)
 	var inverted_pixel = color.RGBA{uint8(255 - rs), uint8(255 - gs), uint8(255 - bs), uint8(as)}
 	return inverted_pixel
 }

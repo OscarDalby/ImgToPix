@@ -238,8 +238,8 @@ func process_png_apply_palette(base_img image.Image, config ProcessConfig) (imag
 			colored_img.Set(x, y, closest_color_in_palette)
 
 			count++
-			percentComplete := (float64(count) / float64(total_pixels_to_process)) * 100
-			fmt.Printf("Progress: %.2f%%\n", percentComplete)
+			percent_complete := (float64(count) / float64(total_pixels_to_process)) * 100
+			fmt.Printf("Progress: %.2f%%\n", percent_complete)
 		}
 	}
 
